@@ -172,13 +172,12 @@ function renderTasks() {
 }
 
 function renderTaskCard(task) {
-  const nextStatus = task.status === "todo" ? "doing" : task.status === "doing" ? "done" : "todo";
   const label = task.status === "todo" ? "Start" : task.status === "doing" ? "Done" : "Reset";
   const due = task.due ? `Due ${task.due}` : "No time set";
   return `
     <article class="task-card priority-${task.priority} ${task.status === "done" ? "done" : ""}">
       <strong>${escapeHtml(task.title)}</strong>
-      <div class="task-meta">${task.priority} · ${due}</div>
+      <div class="task-meta">${task.priority} - ${due}</div>
       <div class="task-actions">
         <button type="button" data-action="advance" data-id="${task.id}">${label}</button>
         <button type="button" data-action="delete" data-id="${task.id}">Delete</button>
@@ -212,7 +211,7 @@ function buildSchedule() {
     ...tasks.slice(0, 5).map((task, index) => ({
       time: task.due || addMinutes(state.settings.dayStart, 75 + index * 70),
       title: task.title,
-      detail: `${capitalize(task.priority)} priority · ${task.status === "doing" ? "already in motion" : "ready to start"}`
+      detail: `${capitalize(task.priority)} priority - ${task.status === "doing" ? "already in motion" : "ready to start"}`
     })),
     { time: state.settings.dayEnd, title: "Shutdown", detail: "Capture loose ends and set tomorrow's first action." }
   ];
@@ -271,42 +270,235 @@ function addTask(title, priority = "medium", due = "", status = "todo") {
   state.tasks.unshift({ id: crypto.randomUUID(), title: cleanTitle, priority, due, status });
 }
 
+function addReminder(text, time) {
+  const cleanText = text.trim();
+  if (!cleanText || !time) return;
+  state.reminders.push({ id: crypto.randomUUID(), text: cleanText, time });
+}
+
+function addNote(body) {
+  const cleanBody = body.trim();
+  if (!cleanBody) return;
+  state.notes.push({ id: crypto.randomUUID(), body: cleanBody, createdAt: Date.now() });
+}
+
 function assistantReply(prompt) {
-  const lower = prompt.toLowerCase();
-  const taskMatch = prompt.match(/(?:add|create|new task)\s+(?:a\s+task\s+)?(.+)/i);
+  const intent = analyzePrompt(prompt);
 
-  if (taskMatch) {
-    const title = taskMatch[1].replace(/\s+(high|medium|low)\s*$/i, "").trim();
-    const priority = lower.includes("high") ? "high" : lower.includes("low") ? "low" : "medium";
-    addTask(title, priority);
-    return `Added "${title}" as a ${priority}-priority task.`;
+  if (intent.type === "reminder") {
+    addReminder(intent.text, intent.time);
+    return `Reminder set for ${intent.time}: ${intent.text}`;
   }
 
-  if (lower.includes("plan") || lower.includes("schedule")) {
-    const topTasks = state.tasks
-      .filter((task) => task.status !== "done")
-      .sort((a, b) => priorityWeight(a.priority) - priorityWeight(b.priority))
-      .slice(0, 3)
-      .map((task, index) => `${index + 1}. ${task.title}`)
-      .join("\n");
-    return topTasks
-      ? `Here is the clean plan:\n${topTasks}\nBatch the rest after your first focus block.`
-      : "Your task board is clear. Use the first block for planning, cleanup, or recovery.";
+  if (intent.type === "note") {
+    addNote(intent.text);
+    return `Saved note: ${intent.text}`;
   }
 
-  if (lower.includes("summarize") || lower.includes("priority")) {
-    const open = state.tasks.filter((task) => task.status !== "done");
-    const high = open.filter((task) => task.priority === "high").length;
-    const doing = open.filter((task) => task.status === "doing").length;
-    return `You have ${open.length} open tasks, ${high} high-priority item${high === 1 ? "" : "s"}, and ${doing} task${doing === 1 ? "" : "s"} already in motion.`;
+  if (intent.type === "task") {
+    addTask(intent.title, intent.priority, intent.due);
+    const dueText = intent.due ? ` for ${intent.due}` : "";
+    return `Added "${intent.title}" as a ${intent.priority}-priority task${dueText}.`;
   }
 
-  if (lower.includes("routine")) {
+  if (intent.type === "complete-task" || intent.type === "start-task") {
+    const task = findTaskByText(intent.text);
+    if (!task) return `I could not find a matching open task for "${intent.text}".`;
+    task.status = intent.type === "complete-task" ? "done" : "doing";
+    return `${intent.type === "complete-task" ? "Marked done" : "Moved to doing"}: ${task.title}`;
+  }
+
+  if (intent.type === "plan") {
+    return buildPlanReply();
+  }
+
+  if (intent.type === "summary") {
+    return buildSummaryReply();
+  }
+
+  if (intent.type === "next") {
+    return buildNextActionReply();
+  }
+
+  if (intent.type === "routine") {
     const next = state.routines.find((routine) => !routine.done);
     return next ? `Next routine: ${next.title}. ${next.detail}.` : "All routines are complete for now.";
   }
 
-  return "I can turn messages into tasks, build a schedule, summarize priorities, or suggest the next routine. Try: add task call client high.";
+  return buildCoachReply(prompt);
+}
+
+function analyzePrompt(prompt) {
+  const lower = prompt.toLowerCase().trim();
+  const time = extractTime(prompt);
+
+  if (/\b(remind|reminder|nudge)\b/.test(lower)) {
+    return {
+      type: "reminder",
+      text: cleanupCommandText(prompt, ["remind me to", "remind", "reminder", "nudge me to", "nudge"]),
+      time: time || addMinutes(state.settings.dayStart, 240)
+    };
+  }
+
+  if (/^(note|save note|remember|write down)\b/i.test(prompt)) {
+    return {
+      type: "note",
+      text: cleanupCommandText(prompt, ["save note", "write down", "remember", "note"])
+    };
+  }
+
+  if (/\b(done|complete|completed|finished|mark done)\b/.test(lower)) {
+    return {
+      type: "complete-task",
+      text: cleanupCommandText(prompt, ["mark done", "completed", "complete", "finished", "done"])
+    };
+  }
+
+  if (/\b(start|begin|work on|move to doing)\b/.test(lower)) {
+    return {
+      type: "start-task",
+      text: cleanupCommandText(prompt, ["move to doing", "work on", "start", "begin"])
+    };
+  }
+
+  if (/\b(plan|schedule|organize|prioritize|focus)\b/.test(lower)) {
+    return { type: "plan" };
+  }
+
+  if (/\b(summary|summarize|status|priority|priorities|overview)\b/.test(lower)) {
+    return { type: "summary" };
+  }
+
+  if (/\b(next|what now|what should i do)\b/.test(lower)) {
+    return { type: "next" };
+  }
+
+  if (/\b(routine|habit|ritual)\b/.test(lower)) {
+    return { type: "routine" };
+  }
+
+  if (/\b(add|create|new task|task|todo|to-do|need to|i have to|i should|please)\b/.test(lower)) {
+    return {
+      type: "task",
+      title: cleanupTaskTitle(prompt),
+      priority: inferPriority(lower),
+      due: time || ""
+    };
+  }
+
+  return { type: "coach" };
+}
+
+function cleanupCommandText(value, prefixes) {
+  let text = value.trim();
+  prefixes.forEach((prefix) => {
+    text = text.replace(new RegExp(`^${escapeRegExp(prefix)}\\s*`, "i"), "");
+  });
+  return removeTimeText(text).replace(/\s+/g, " ").trim();
+}
+
+function cleanupTaskTitle(value) {
+  return removeTimeText(value)
+    .replace(/^(please\s+)?(add|create|new task|task|todo|to-do)\s*/i, "")
+    .replace(/^(i need to|need to|i have to|i should)\s*/i, "")
+    .replace(/\b(high|medium|low|urgent|important|minor|someday)\b/gi, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function removeTimeText(value) {
+  return value
+    .replace(/\b(at|by|around)\s+\d{1,2}(:\d{2})?\s*(am|pm)?\b/gi, "")
+    .replace(/\b\d{1,2}(:\d{2})\b/g, "")
+    .trim();
+}
+
+function extractTime(value) {
+  const match = value.match(/\b(?:at|by|around)?\s*(\d{1,2})(?::(\d{2}))?\s*(am|pm)?\b/i);
+  if (!match) return "";
+
+  let hours = Number(match[1]);
+  const minutes = Number(match[2] || 0);
+  const period = match[3]?.toLowerCase();
+
+  if (hours > 24 || minutes > 59) return "";
+  if (period === "pm" && hours < 12) hours += 12;
+  if (period === "am" && hours === 12) hours = 0;
+  if (!period && hours < 7) hours += 12;
+
+  return `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}`;
+}
+
+function inferPriority(lower) {
+  if (/\b(high|urgent|important|critical|asap)\b/.test(lower)) return "high";
+  if (/\b(low|minor|someday|later|nice to have)\b/.test(lower)) return "low";
+  return "medium";
+}
+
+function findTaskByText(text) {
+  const needle = text.toLowerCase().trim();
+  const openTasks = state.tasks.filter((task) => task.status !== "done");
+  return openTasks.find((task) => task.title.toLowerCase().includes(needle))
+    || openTasks.find((task) => needle.includes(task.title.toLowerCase()))
+    || openTasks.sort((a, b) => priorityWeight(a.priority) - priorityWeight(b.priority))[0];
+}
+
+function buildPlanReply() {
+  const tasks = sortedOpenTasks();
+  if (!tasks.length) return "Your task board is clear. Keep one light admin block and leave space for anything unexpected.";
+
+  const top = tasks.slice(0, 3);
+  const first = top[0];
+  const schedule = top
+    .map((task, index) => `${addMinutes(state.settings.dayStart, index * 75)} - ${task.title} (${task.priority})`)
+    .join("\n");
+  const batchCount = Math.max(0, tasks.length - top.length);
+
+  return `Best plan:\n${schedule}\n\nStart with "${first.title}". ${batchCount ? `Batch the remaining ${batchCount} task${batchCount === 1 ? "" : "s"} after that.` : "After that, keep the board clean."}`;
+}
+
+function buildSummaryReply() {
+  const open = state.tasks.filter((task) => task.status !== "done");
+  const high = open.filter((task) => task.priority === "high");
+  const doing = open.filter((task) => task.status === "doing");
+  const nextRoutine = state.routines.find((routine) => !routine.done);
+  const due = open.filter((task) => task.due).sort((a, b) => a.due.localeCompare(b.due));
+
+  return [
+    `Open tasks: ${open.length}`,
+    `High priority: ${high.length}${high[0] ? ` - ${high[0].title}` : ""}`,
+    `In progress: ${doing.length}${doing[0] ? ` - ${doing[0].title}` : ""}`,
+    `Next timed item: ${due[0] ? `${due[0].due} - ${due[0].title}` : "none"}`,
+    `Next routine: ${nextRoutine ? nextRoutine.title : "all complete"}`
+  ].join("\n");
+}
+
+function buildNextActionReply() {
+  const doing = state.tasks.find((task) => task.status === "doing");
+  if (doing) return `Keep momentum on "${doing.title}". Finish or park it before opening a new task.`;
+
+  const nextTask = sortedOpenTasks()[0];
+  if (nextTask) return `Next action: start "${nextTask.title}". Give it a focused 25-minute pass.`;
+
+  const nextRoutine = state.routines.find((routine) => !routine.done);
+  return nextRoutine ? `Next action: ${nextRoutine.title}. ${nextRoutine.detail}.` : "Nothing urgent is waiting. Do a short review and choose tomorrow's first task.";
+}
+
+function buildCoachReply(prompt) {
+  const open = sortedOpenTasks();
+  if (!open.length) return "I do not see an open task yet. Say something like: add task send invoice by 5pm high.";
+
+  return `I heard: "${prompt}". I can act fastest if you phrase it as a task, reminder, note, plan, summary, next action, or routine request. Your current best next task is "${open[0].title}".`;
+}
+
+function sortedOpenTasks() {
+  return [...state.tasks]
+    .filter((task) => task.status !== "done")
+    .sort((a, b) => priorityWeight(a.priority) - priorityWeight(b.priority) || (a.due || "99:99").localeCompare(b.due || "99:99"));
+}
+
+function escapeRegExp(value) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
 function priorityWeight(priority) {

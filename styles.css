@@ -394,6 +394,7 @@ svg {
   border: 1px solid var(--line);
   color: var(--ink);
   line-height: 1.45;
+  white-space: pre-line;
 }
 
 .message.user {
