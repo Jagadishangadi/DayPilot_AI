@@ -1,0 +1,242 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>DayPilot AI</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div class="app-shell">
+      <aside class="sidebar" aria-label="Workspace navigation">
+        <div class="brand">
+          <div class="brand-mark" aria-hidden="true">
+            <svg viewBox="0 0 24 24" role="img">
+              <path d="M12 3.25 19.8 7.7v8.6L12 20.75l-7.8-4.45V7.7L12 3.25Z" />
+              <path d="M8.1 10.45 12 8.25l3.9 2.2v4.1L12 16.75l-3.9-2.2v-4.1Z" />
+            </svg>
+          </div>
+          <div>
+            <strong>DayPilot AI</strong>
+            <span>Personal routine agent</span>
+          </div>
+        </div>
+
+        <nav class="nav-list" aria-label="Main sections">
+          <a href="#today" class="nav-link active" data-target="today">
+            <svg viewBox="0 0 24 24"><path d="M8 2v4M16 2v4M3.5 9.2h17M5.5 4.5h13a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-13a2 2 0 0 1-2-2v-12a2 2 0 0 1 2-2Z" /></svg>
+            Today
+          </a>
+          <a href="#tasks" class="nav-link" data-target="tasks">
+            <svg viewBox="0 0 24 24"><path d="m4.5 12 4 4 11-11M4.5 19h15" /></svg>
+            Tasks
+          </a>
+          <a href="#notes" class="nav-link" data-target="notes">
+            <svg viewBox="0 0 24 24"><path d="M6.5 3.5h8l3 3v14h-11a2 2 0 0 1-2-2v-13a2 2 0 0 1 2-2Z" /><path d="M14.5 3.5v4h4M8 12h8M8 16h6" /></svg>
+            Notes
+          </a>
+          <a href="#routines" class="nav-link" data-target="routines">
+            <svg viewBox="0 0 24 24"><path d="M3.5 12a8.5 8.5 0 0 1 14.7-5.8L20.5 8M20.5 4v4h-4M20.5 12a8.5 8.5 0 0 1-14.7 5.8L3.5 16M3.5 20v-4h4" /></svg>
+            Routines
+          </a>
+          <a href="#settings" class="nav-link" data-target="settings">
+            <svg viewBox="0 0 24 24"><path d="M12 8.5a3.5 3.5 0 1 1 0 7 3.5 3.5 0 0 1 0-7Z" /><path d="M19.4 15a1.7 1.7 0 0 0 .34 1.87l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06A1.7 1.7 0 0 0 15 19.36a1.7 1.7 0 0 0-1 1.55V21a2 2 0 0 1-4 0v-.09a1.7 1.7 0 0 0-1-1.55 1.7 1.7 0 0 0-1.87.34l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.7 1.7 0 0 0 4.64 15a1.7 1.7 0 0 0-1.55-1H3a2 2 0 0 1 0-4h.09a1.7 1.7 0 0 0 1.55-1 1.7 1.7 0 0 0-.34-1.87l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.7 1.7 0 0 0 9 4.64a1.7 1.7 0 0 0 1-1.55V3a2 2 0 0 1 4 0v.09a1.7 1.7 0 0 0 1 1.55 1.7 1.7 0 0 0 1.87-.34l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.7 1.7 0 0 0 19.36 9c.2.6.78 1 1.55 1H21a2 2 0 0 1 0 4h-.09a1.7 1.7 0 0 0-1.55 1Z" /></svg>
+            Settings
+          </a>
+        </nav>
+
+        <div class="sidebar-footer">
+          <span class="status-dot"></span>
+          <span>Local memory active</span>
+        </div>
+      </aside>
+
+      <main class="main">
+        <header class="topbar">
+          <button class="icon-button mobile-menu" id="menuButton" aria-label="Open navigation">
+            <svg viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h16" /></svg>
+          </button>
+          <div>
+            <p class="eyebrow" id="currentDate"></p>
+            <h1>Command your day</h1>
+          </div>
+          <div class="topbar-actions">
+            <button class="ghost-button" id="exportButton">
+              <svg viewBox="0 0 24 24"><path d="M12 3v12M7.5 10.5 12 15l4.5-4.5M5 19.5h14" /></svg>
+              Export
+            </button>
+            <button class="primary-button" id="planButton">
+              <svg viewBox="0 0 24 24"><path d="M12 3.5v17M3.5 12h17M5.8 5.8l12.4 12.4M18.2 5.8 5.8 18.2" /></svg>
+              Plan
+            </button>
+          </div>
+        </header>
+
+        <section class="hero-band" id="today" data-section>
+          <div class="hero-copy">
+            <p class="eyebrow">Focus forecast</p>
+            <h2 id="focusTitle">Build a realistic plan before the day runs away.</h2>
+            <div class="metrics-grid">
+              <div class="metric">
+                <span id="taskCount">0</span>
+                <small>open tasks</small>
+              </div>
+              <div class="metric">
+                <span id="dueCount">0</span>
+                <small>due today</small>
+              </div>
+              <div class="metric">
+                <span id="routineCount">0</span>
+                <small>routines left</small>
+              </div>
+            </div>
+          </div>
+          <div class="orbit-panel" aria-label="Daily focus visualization">
+            <div class="orbit-center">
+              <svg viewBox="0 0 120 120" aria-hidden="true">
+                <circle cx="60" cy="60" r="44" />
+                <path d="M60 18v84M18 60h84" />
+                <path d="M34 34c18 12 34 12 52 0M34 86c18-12 34-12 52 0" />
+              </svg>
+              <strong id="focusScore">72</strong>
+              <span>focus</span>
+            </div>
+          </div>
+        </section>
+
+        <section class="workspace-grid">
+          <div class="panel planner-panel">
+            <div class="panel-header">
+              <div>
+                <p class="eyebrow">Agent prompt</p>
+                <h2>Ask DayPilot</h2>
+              </div>
+              <button class="icon-button" id="clearChatButton" aria-label="Clear assistant">
+                <svg viewBox="0 0 24 24"><path d="M5 7h14M10 11v6M14 11v6M8 7V5.5A1.5 1.5 0 0 1 9.5 4h5A1.5 1.5 0 0 1 16 5.5V7M6.5 7l.8 13h9.4l.8-13" /></svg>
+              </button>
+            </div>
+            <div class="chat-log" id="chatLog" aria-live="polite"></div>
+            <form class="prompt-row" id="assistantForm">
+              <input id="assistantInput" autocomplete="off" placeholder="Plan my day, add a task, summarize priorities..." />
+              <button class="primary-icon" aria-label="Send prompt">
+                <svg viewBox="0 0 24 24"><path d="M4 12 20 4l-4 16-4-7-8-1Z" /></svg>
+              </button>
+            </form>
+          </div>
+
+          <div class="panel schedule-panel">
+            <div class="panel-header">
+              <div>
+                <p class="eyebrow">Today</p>
+                <h2>Smart schedule</h2>
+              </div>
+              <button class="ghost-button compact" id="rebalanceButton">Rebalance</button>
+            </div>
+            <div class="timeline" id="timeline"></div>
+          </div>
+        </section>
+
+        <section class="section-band" id="tasks" data-section>
+          <div class="section-header">
+            <div>
+              <p class="eyebrow">Execution</p>
+              <h2>Task board</h2>
+            </div>
+          </div>
+          <form class="task-form" id="taskForm">
+            <input id="taskTitle" placeholder="New task" required />
+            <select id="taskPriority" aria-label="Priority">
+              <option value="high">High</option>
+              <option value="medium" selected>Medium</option>
+              <option value="low">Low</option>
+            </select>
+            <input id="taskDue" type="time" aria-label="Due time" />
+            <button class="primary-button" type="submit">
+              <svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14" /></svg>
+              Add
+            </button>
+          </form>
+          <div class="task-columns" id="taskColumns"></div>
+        </section>
+
+        <section class="section-band split-band" id="notes" data-section>
+          <div class="panel notes-panel">
+            <div class="panel-header">
+              <div>
+                <p class="eyebrow">Capture</p>
+                <h2>Quick notes</h2>
+              </div>
+              <button class="ghost-button compact" id="saveNoteButton">Save</button>
+            </div>
+            <textarea id="noteInput" placeholder="Meeting notes, thoughts, follow-ups..."></textarea>
+            <div class="note-list" id="noteList"></div>
+          </div>
+
+          <div class="panel reminder-panel">
+            <div class="panel-header">
+              <div>
+                <p class="eyebrow">Nudges</p>
+                <h2>Reminders</h2>
+              </div>
+            </div>
+            <form class="reminder-form" id="reminderForm">
+              <input id="reminderText" placeholder="Reminder" required />
+              <input id="reminderTime" type="time" required />
+              <button class="primary-icon" aria-label="Add reminder">
+                <svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14" /></svg>
+              </button>
+            </form>
+            <div class="reminder-list" id="reminderList"></div>
+          </div>
+        </section>
+
+        <section class="section-band" id="routines" data-section>
+          <div class="section-header">
+            <div>
+              <p class="eyebrow">Rhythm</p>
+              <h2>Routine tracker</h2>
+            </div>
+          </div>
+          <div class="routine-grid" id="routineGrid"></div>
+        </section>
+
+        <section class="section-band" id="settings" data-section>
+          <div class="settings-layout">
+            <div>
+              <p class="eyebrow">Agent setup</p>
+              <h2>Model connection</h2>
+            </div>
+            <div class="settings-form">
+              <label>
+                Provider
+                <select id="providerSelect">
+                  <option value="local">Local planner</option>
+                  <option value="openai">OpenAI API</option>
+                </select>
+              </label>
+              <label>
+                API key
+                <input id="apiKeyInput" type="password" placeholder="Optional" />
+              </label>
+              <label>
+                Workday start
+                <input id="dayStartInput" type="time" />
+              </label>
+              <label>
+                Workday end
+                <input id="dayEndInput" type="time" />
+              </label>
+              <button class="primary-button" id="saveSettingsButton">
+                <svg viewBox="0 0 24 24"><path d="M5 12.5 10 17l9-10" /></svg>
+                Save settings
+              </button>
+            </div>
+          </div>
+        </section>
+      </main>
+    </div>
+
+    <div class="toast" id="toast" role="status" aria-live="polite"></div>
+    <script src="app.js"></script>
+  </body>
+</html>
